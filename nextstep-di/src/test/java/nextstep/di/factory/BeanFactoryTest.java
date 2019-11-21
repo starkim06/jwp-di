@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -109,7 +110,8 @@ class BeanFactoryTest {
     }
 
     private BeanFactory getBeanFactory(List<Class<?>> classes) {
-        BeanFactory beanFactory = new BeanFactory(Sets.newHashSet(classes));
+        classes.stream().collect(Collectors.toMap(aClass -> aClass, aClass -> aClass.))
+        BeanFactory beanFactory = new BegnFactory(Sets.newHashSet(classes));
         beanFactory.initialize();
 
         return beanFactory;

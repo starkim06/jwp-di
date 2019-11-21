@@ -1,6 +1,7 @@
 package nextstep.di.factory;
 
 import com.google.common.collect.Maps;
+import nextstep.di.factory.definition.BeanDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,10 +20,15 @@ public class BeanFactory {
 
     private static final int DEFAULT_CONSTRUCTOR_PARAMETER_NUMBER = 0;
 
-    private final Set<Class<?>> preInstanticateBeans;
+    private final Map<Class<?>, BeanDefinition> preInstanticateBeans;
     private final Map<Class<?>, Object> beans = Maps.newHashMap();
 
-    public BeanFactory(Set<Class<?>> preInstanticateBeans) {
+    public BeanFactory(BeanScanner beanScanner) {
+        //Configuration과 그냥 클래스의 차이점은 Configuration의 경우는 해당 클래스가 필요하다.
+        this.preInstanticateBeans = beanScanner.getPreInstanticateBeanClasses();
+    }
+
+    public BeanFactory(Map<Class<?>, BeanDefinition> preInstanticateBeans) {
         this.preInstanticateBeans = preInstanticateBeans;
     }
 
@@ -38,14 +44,14 @@ public class BeanFactory {
     }
 
     public void initialize() {
-        this.preInstanticateBeans.forEach(clazz -> {
+        this.preInstanticateBeans.keySet().forEach(clazz -> {
             Set<Class<?>> waitingForInitializationBeans = new HashSet<>();
             initBean(clazz, waitingForInitializationBeans);
         });
     }
 
     private void initBean(Class<?> clazz, Set<Class<?>> waitingForInitializationBeans) {
-        Class<?> concreteClass = findConcreteClass(clazz, preInstanticateBeans);
+        Class<?> concreteClass = findConcreteClass(clazz, preInstanticateBeans.keySet());
         if (isAlreadyInitializedBean(concreteClass)) {
             return;
         }
@@ -66,7 +72,7 @@ public class BeanFactory {
     }
 
     private void validateBean(Class<?> concreteClass) {
-        if (!preInstanticateBeans.contains(concreteClass)) {
+        if (!preInstanticateBeans.containsKey(concreteClass)) {
             throw new IllegalStateException("해당 객체가 빈으로 등록되지 않았습니다.");
         }
     }
@@ -80,10 +86,9 @@ public class BeanFactory {
     private Object createBean(Class<?> concreteClass, Set<Class<?>> waitingForInitializationBeans) {
         logger.info("{}.createBean() >> {}", TAG, concreteClass);
 
-        Constructor<?> constructor = getConstructor(concreteClass);
-        List<Object> parameters = getParameterizedBeans(constructor, waitingForInitializationBeans);
 
-        return createInstance(constructor, parameters);
+        Class<?>[] classes = preInstanticateBeans.get(concreteClass).getParameters();
+        return preInstanticateBeans.get(concreteClass).createBean(classes);
     }
 
     private Constructor<?> getConstructor(Class<?> concreteClass) {
@@ -92,7 +97,6 @@ public class BeanFactory {
         if (Objects.isNull(constructor)) {
             constructor = getDefaultConstructor(concreteClass);
         }
-
         return constructor;
     }
 
@@ -124,7 +128,7 @@ public class BeanFactory {
     }
 
     private Object getBeanInternal(Class<?> type) {
-        return beans.get(findConcreteClass(type, preInstanticateBeans));
+        return beans.get(findConcreteClass(type, preInstanticateBeans.keySet()));
     }
 
     private Object createInstance(Constructor<?> constructor, List<Object> parameters) {
@@ -134,6 +138,5 @@ public class BeanFactory {
             throw new IllegalArgumentException(e);
         }
     }
-
 
 }
